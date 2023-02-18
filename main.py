@@ -2,19 +2,22 @@ import tkinter
 from tkinter import ttk
 import customtkinter 
 import time
+import pymongo
 from pymongo import MongoClient
 import os
 from PIL import Image
 staff_entry_window_is_open = False 
 colour_theme = None
 colour_changed = None
+appearance_mode = "Dark"
+previous_pos = None
 class Login(customtkinter.CTk):
     def __init__(self):
         global colour_theme
         super().__init__()
         if not(isDefined(colour_theme)):
-            colour_theme = "blue"
-        customtkinter.set_default_color_theme(colour_theme)
+            colour_theme = "Blue"
+        customtkinter.set_default_color_theme(colour_theme.lower())
         self.title("Login")
         self.geometry("500x350")
         
@@ -53,42 +56,42 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Add New Staff Entry")
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
         self.protocol("WM_DELETE_WINDOW", self.cancel)
         self.columnconfigure(0, weight=1)
         self.geometry("600x200")
-        self.frame = customtkinter.CTkFrame(self, corner_radius=3)
-        self.frame.grid(row=0, column=0)
+        self.frame = customtkinter.CTkFrame(self)
+        self.frame.grid(row=0, column=0, pady=10)
        
         self.first_name_label = customtkinter.CTkLabel(self.frame, text="First Name:")
-        self.first_name_label.grid(row=0, column=0, padx=2, pady=5)
+        self.first_name_label.grid(row=0, column=0, padx=10, pady=5)
         self.first_name_entry = customtkinter.CTkEntry(self.frame)
-        self.first_name_entry.grid(row=0, column=1, padx=2, pady=5)
+        self.first_name_entry.grid(row=0, column=1, padx=10, pady=5)
         
         self.last_name_label = customtkinter.CTkLabel(self.frame, text="Last Name:")
-        self.last_name_label.grid(row=0, column=4, padx=1, pady=5)
+        self.last_name_label.grid(row=0, column=4, padx=10, pady=5)
         self.last_name_entry = customtkinter.CTkEntry(self.frame)
-        self.last_name_entry.grid(row=0, column=5, padx=10, pady=5)
+        self.last_name_entry.grid(row=0, column=5, padx=1, pady=5)
         
         self.department_label = customtkinter.CTkLabel(self.frame, text="Department:")
         self.department_label.grid(row=2, column=0, padx=10, pady=5)
         self.department_entry = customtkinter.CTkEntry(self.frame)
         self.department_entry.grid(row=2, column=1, padx=10, pady=5)
-        
-        self.submit_button = customtkinter.CTkButton(self.frame, text="Submit", command=self.submit_staff_entry)
-        self.submit_button.grid(row=3, column=4, pady=10)
 
-        self.cancel_button = customtkinter.CTkButton(self.frame, text="Cancel", command=self.cancel)
-        self.cancel_button.grid(row=3, column=1, pady=10)
+        self.button_frame = customtkinter.CTkFrame(self, corner_radius=1)
+        self.button_frame.grid(row=1,column=0)
+        self.submit_button = customtkinter.CTkButton(self.button_frame, text="Submit", command=self.submit_staff_entry)
+        self.submit_button.grid(row=0, column=1, padx=25)
+
+        self.cancel_button = customtkinter.CTkButton(self.button_frame, text="Cancel", command=self.cancel)
+        self.cancel_button.grid(row=0, column=0, padx=25)
         
     def submit_staff_entry(self):
         global staff_entry_window_is_open
         first_name = self.first_name_entry.get()
         last_name = self.last_name_entry.get()
         department = self.department_entry.get()
-        self.cancel()
-        self.destroy()
-        # Add the staff entry to your database or data structure here
+        tkinter.messagebox.showerror("Error","Your request could not be completed at this time. Please try again later.", parent=self)
     def cancel(self):
         global staff_entry_window_is_open
         staff_entry_window_is_open = False 
@@ -98,16 +101,21 @@ class MainScreen(customtkinter.CTk):
         global colour_theme
         global colour_changed
         global staff_entry_window_is_open 
+        global appearance_mode
         super().__init__()
-        customtkinter.set_default_color_theme(colour_theme)
+        customtkinter.set_default_color_theme(colour_theme.lower())
         self.title("Stock and staff system")
-        self.geometry("700x450")
+        if isDefined(previous_pos):
+            geometry_string="700x450+"+previous_pos[0]+"+"+previous_pos[1]
+        else:
+            geometry_string="700x450"
+        self.geometry(geometry_string)
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.name = name 
           # Themes: blue (default), dark-blue, green
         
-        image_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_images")
+        image_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "images")
         self.logo_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "CustomTkinter_logo_single.png")), size=(26, 26))
         self.large_test_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "large_test_image.png")), size=(500, 150))
         self.image_icon_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "image_icon_light.png")), size=(20, 20))
@@ -117,6 +125,8 @@ class MainScreen(customtkinter.CTk):
                                                  dark_image=Image.open(os.path.join(image_path, "chat_light.png")), size=(20, 20))
         self.add_user_image = customtkinter.CTkImage(light_image=Image.open(os.path.join(image_path, "add_user_dark.png")),
                                                      dark_image=Image.open(os.path.join(image_path, "add_user_light.png")), size=(20, 20))
+        self.settings_image =  customtkinter.CTkImage(light_image=Image.open(os.path.join(image_path, "settings_dark.png")),
+                                                     dark_image=Image.open(os.path.join(image_path, "settings_light.png")), size=(20, 20))
         self.navigation_frame = customtkinter.CTkFrame(self, corner_radius=0)
         self.navigation_frame.grid(row=0, column=0, sticky="nsew")
         self.navigation_frame.grid_rowconfigure(4, weight=1)
@@ -135,14 +145,14 @@ class MainScreen(customtkinter.CTk):
                                                       image=self.chat_image, anchor="w", command=self.frame_2_button_event)
         self.frame_2_button.grid(row=2, column=0, sticky="ew")
 
-        self.frame_3_button = customtkinter.CTkButton(self.navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Frame 3",
+        self.frame_3_button = customtkinter.CTkButton(self.navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Staff",
                                                       fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
                                                       image=self.add_user_image, anchor="w", command=self.frame_3_button_event)
         self.frame_3_button.grid(row=3, column=0, sticky="ew")
 
         self.settings_button = customtkinter.CTkButton(self.navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Settings",
                                                       fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      anchor="w", command=self.settings_button_event)
+                                                      image=self.settings_image,anchor="w", command=self.settings_button_event)
         self.settings_button.grid(row=6, column=0, sticky="ew")
 
         # create home frame
@@ -173,32 +183,37 @@ class MainScreen(customtkinter.CTk):
 
         self.staff_frame_add_staff_button = customtkinter.CTkButton(self.staff_frame, text="New Staff Entry", command=self.new_staff_entry)
         self.staff_frame_add_staff_button.grid(row=0, column=0)
+
         # create settings frame 
         self.settings_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.settings_frame.grid_columnconfigure(0, weight=1)
-        self.settings_frame_theme = customtkinter.CTkLabel(self.settings_frame, text="Theme", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
+        self.settings_frame_theme = customtkinter.CTkLabel(self.settings_frame, text="Appearance", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
         self.settings_frame_theme.grid(row=0, column=0, padx=15, pady=5, sticky = "W")
         
-        self.appearance_mode_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Dark", "Light", "System"],command=self.change_appearance_mode_event) 
+        self.appearance_mode = customtkinter.StringVar()
+        self.appearance_mode.set(appearance_mode)
+        self.appearance_mode_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Dark", "Light"],command=self.change_appearance_mode_event, variable=self.appearance_mode) 
         self.appearance_mode_menu.grid(row=0, column=6, padx=20, pady=5, sticky="E")
         
         self.separator = ttk.Separator(self.settings_frame, orient='horizontal')
         self.separator.grid(row=1, column=0, columnspan=7, sticky='ew', padx=10, pady=5)
 
+        self.colour_theme_var = customtkinter.StringVar()
+        self.colour_theme_var.set(colour_theme)
         self.settings_frame_colour_theme = customtkinter.CTkLabel(self.settings_frame, text="Colour Theme", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
         self.settings_frame_colour_theme.grid(row=2, column=0, padx=15, pady=5, sticky="W")
-        self.settings_frame_colour_theme_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Blue","Dark-Blue","Green"], command=self.change_colour_theme_event)
+        self.settings_frame_colour_theme_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Blue","Dark-Blue","Green"], command=self.change_colour_theme_event, variable=self.colour_theme_var)
         self.settings_frame_colour_theme_menu.grid(row=2, column=6, padx=20, pady=5, sticky="E")
 
         self.settings_frame_logout_button = customtkinter.CTkButton(self.settings_frame, text="Logout",anchor="s", command=self.logout)
         self.settings_frame_logout_button.grid(row=6, column=0, padx=10, pady=10, sticky="w")
         # select default frame
         if isDefined(colour_changed):
-            default_frame = "settings"
+            opening_frame = "settings"
             colour_changed = None
         else:
-            default_frame = "home"
-        self.select_frame_by_name(default_frame)
+            opening_frame = "home"
+        self.select_frame_by_name(opening_frame)
         
         self.mainloop()
 
@@ -217,7 +232,7 @@ class MainScreen(customtkinter.CTk):
             self.second_frame.grid(row=0, column=1, sticky="nsew")
         else:
             self.second_frame.grid_forget()
-        if name == "frame_3":
+        if name == "staff":
             self.staff_frame.grid(row=0, column=1, sticky="nsew")
         else:
             self.staff_frame.grid_forget()
@@ -234,24 +249,35 @@ class MainScreen(customtkinter.CTk):
         self.select_frame_by_name("frame_2")
 
     def frame_3_button_event(self):
-        self.select_frame_by_name("frame_3")
+        self.select_frame_by_name("staff")
     
     def settings_button_event(self):
         self.select_frame_by_name("settings")
     
     def change_appearance_mode_event(self, new_appearance_mode):
+        global appearance_mode
+        appearance_mode = new_appearance_mode
         customtkinter.set_appearance_mode(new_appearance_mode)
     def change_colour_theme_event(self, new_colour_theme):
         global colour_theme
         global colour_changed
+        global staff_entry_window_is_open
+        global previous_pos
+        if new_colour_theme==colour_theme:
+            return
+        if staff_entry_window_is_open == True:
+            staff_entry_window.destroy()
+            staff_entry_window_is_open = False
+        
         colour_changed = True
-        colour_theme = new_colour_theme.lower()
+        colour_theme = new_colour_theme
+        previous_pos=[str(self.winfo_x()), str(self.winfo_y())]
         self.destroy()
         Main = MainScreen()
     def new_staff_entry(self):
         global staff_entry_window_is_open
         global staff_entry_window
-        if not staff_entry_window_is_open:
+        if not(staff_entry_window_is_open):
             staff_entry_window = StaffEntryWindow(self)
             staff_entry_window_is_open = True
         else:
