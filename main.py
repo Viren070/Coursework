@@ -1,13 +1,14 @@
-import tkinter 
-from tkinter import ttk
-import customtkinter 
-import time
-import pymongo
-from pymongo import MongoClient
+import hashlib
 import os
 import re
-from PIL import Image
+import time
+import tkinter
+from tkinter import ttk
 
+import customtkinter
+import pymongo
+from PIL import Image
+from pymongo import MongoClient
 
 
 class LoginScreen(customtkinter.CTk):
@@ -26,10 +27,10 @@ class LoginScreen(customtkinter.CTk):
         self.login_title = customtkinter.CTkLabel(self.login_frame, text="Login System", font=customtkinter.CTkFont(size=25, weight="bold"))
         self.login_title.pack(pady=12,padx=10)
 
-        self.username_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text = "Enter Username")
-        self.username_entry.pack(pady=12,padx=10)
+        self.email_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text = "Enter E-Mail", width = 200)
+        self.email_entry.pack(pady=12,padx=10)
 
-        self.password_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text = "Enter Password", show = "*")
+        self.password_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text = "Enter Password", show = "*", width=200)
         self.password_entry.pack(pady=12,padx=10)
 
         self.login_button = customtkinter.CTkButton(self.login_frame, text = "Login", command = self.login_button_event)
@@ -37,15 +38,38 @@ class LoginScreen(customtkinter.CTk):
         self.mainloop()
     
     def login_button_event(self):
-        if (self.username_entry.get() == "" and self.password_entry.get() == ""):
-            name = self.username_entry.get()
-            self.destroy()
-            
-            
-            MainScreen(name, self.appearance_mode, self.colour_theme)
-            
+        self.change_widget_state("disabled")
+        try:
+            client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
+            db = client.ManagementSoftware
+            Staff = db.Staff
+            email = self.email_entry.get()
+            query = Staff.find_one({"email": "{}".format(email)})
+        except:
+            tkinter.messagebox.showerror("Error","A connection could not be established with the database")
+            self.change_widget_state("normal")
+            return
+        if isDefined(query):
+            password_guess = self.password_entry.get()
+            name = query['name']['first']
+            salt = query['password']['salt']
+            guess_hash = hashlib.pbkdf2_hmac('sha256', password_guess.encode('utf-8'), salt, 10000, dklen=128 )
+            if guess_hash == query['password']['hash']:
+                self.destroy()
+                MainScreen(name, self.appearance_mode, self.colour_theme)
+            else:
+                tkinter.messagebox.showerror("Error","Incorrect Password or Username")
         else:
-            tkinter.messagebox.showerror("Error","Incorrect username or password")
+            tkinter.messagebox.showerror("Error","Incorrect Password or Username")
+        self.change_widget_state("normal")
+        
+    def change_widget_state(self, state):
+        self.email_entry.configure(state=state)
+        self.password_entry.configure(state=state)
+        self.login_button.configure(state=state)
+        
+
+
 
 
 class StaffEntryWindow(customtkinter.CTkToplevel):
@@ -60,43 +84,84 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
         self.columnconfigure(0, weight=1)
         self.number_of_inputs=3
         self.minsize(width=500, height=180)
-        self.resizable(False, False)
+        #self.resizable(False, False)
         
         self.frame = customtkinter.CTkFrame(self)
         self.frame.grid(row=0, column=0, pady=10)
+        self.job_details_frame = customtkinter.CTkFrame(self)
+        self.job_details_frame.grid(row=1, column=0, padx=10, pady=10)
+
+
        
+        
         self.first_name_variable = customtkinter.StringVar()
         self.first_name_variable.trace_add("write", self.validate_inputs)
         self.first_name_label = customtkinter.CTkLabel(self.frame ,text="First Name:")
         self.first_name_label.grid(row=0, column=0, padx=10, pady=5)
         self.first_name_entry = customtkinter.CTkEntry(self.frame,  textvariable=self.first_name_variable)
-        
         self.first_name_entry.grid(row=0, column=1, padx=10, pady=5)
         
         self.last_name_variable = customtkinter.StringVar()
         self.last_name_variable.trace_add("write", self.validate_inputs)
         self.last_name_label = customtkinter.CTkLabel(self.frame, text="Last Name:")
-        self.last_name_label.grid(row=0, column=4, padx=10, pady=5)
+        self.last_name_label.grid(row=0, column=2, padx=10, pady=5)
         self.last_name_entry = customtkinter.CTkEntry(self.frame, textvariable=self.last_name_variable)
-        self.last_name_entry.grid(row=0, column=5, padx=1, pady=5)
-        
+        self.last_name_entry.grid(row=0, column=3, padx=10, pady=5)
+        #birth date, gender, email, location
+        self.gender_variable = customtkinter.StringVar()
+        self.gender_variable.set("Select Gender")
+        self.gender_variable.trace_add("write", self.validate_inputs)
+        self.gender_label = customtkinter.CTkLabel(self.frame, text="Gender: ")
+        self.gender_optionmenu = customtkinter.CTkOptionMenu(self.frame, values=["Male","Female"], variable=self.gender_variable)       
+        self.gender_label.grid(row=0, column=4, padx=10, pady=5)
+        self.gender_optionmenu.grid(row=0, column=5, padx=10, pady=5)
+       
+        self.birth_date_variable = customtkinter.StringVar()
+        self.birth_date_variable.trace_add("write", self.validate_inputs)
+        self.birth_date_label = customtkinter.CTkLabel(self.frame, text="Birth Date: ")
+        self.birth_date_entry = customtkinter.CTkEntry(self.frame, textvariable=self.birth_date_variable)
+        self.birth_date_label.grid(row=2, column=0, padx=10, pady=5)
+        self.birth_date_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        self.email_variable = customtkinter.StringVar()
+        self.email_variable.trace_add("write", self.validate_inputs)
+        self.email_label = customtkinter.CTkLabel(self.frame, text="E-Mail: ")
+        self.email_entry = customtkinter.CTkEntry(self.frame, textvariable=self.email_variable, width=200)
+        self.email_label.grid(row=2, column=2, padx=10, pady=5)
+        self.email_entry.grid(row=2, column=3, padx=10, pady=5)
+
         self.department_variable = customtkinter.StringVar()
         self.department_variable.trace_add("write", self.validate_inputs)
-        self.department_label = customtkinter.CTkLabel(self.frame, text="Department:")
-        self.department_label.grid(row=2, column=0, padx=10, pady=5)
-        self.department_entry = customtkinter.CTkEntry(self.frame, textvariable=self.department_variable)
-        self.department_entry.grid(row=2, column=1, padx=10, pady=5)
+        self.department_label = customtkinter.CTkLabel(self.job_details_frame, text="Department:")
+        self.department_label.grid(row=0, column=0, padx=10, pady=5)
+        self.department_entry = customtkinter.CTkEntry(self.job_details_frame, textvariable=self.department_variable)
+        self.department_entry.grid(row=0, column=1, padx=10, pady=5)
+
+        self.salary_variable = customtkinter.StringVar()
+        self.salary_variable.trace_add("write", self.validate_inputs)
+        self.salary_label = customtkinter.CTkLabel(self.job_details_frame, text="Salary:" )
+        self.salary_entry = customtkinter.CTkEntry(self.job_details_frame, textvariable=self.salary_variable)
+        self.salary_label.grid(row=0, column=2, padx=10, pady=5)
+        self.salary_entry.grid(row=0, column=3, padx=10, pady=5)
+
+        self.hire_date_variable = customtkinter.StringVar()
+        self.hire_date_variable.trace_add("write", self.validate_inputs)
+        self.hire_date_label = customtkinter.CTkLabel(self.job_details_frame, text="Hire Date: ")
+        self.hire_date_entry = customtkinter.CTkEntry(self.job_details_frame, textvariable=self.hire_date_variable)
+        self.hire_date_label.grid(row=0, column=4, padx=10, pady=5)
+        self.hire_date_entry.grid(row=0, column=5, padx=10, pady=5)
+
 
         self.first_name_warning=customtkinter.CTkLabel(self.frame, text="a-z only", text_color="red")
         self.last_name_warning=customtkinter.CTkLabel(self.frame, text="a-z only", text_color="red")
-        self.department_warning=customtkinter.CTkLabel(self.frame, text="a-z only", text_color="red")
+        self.department_warning=customtkinter.CTkLabel(self.job_details_frame, text="a-z only", text_color="red")
     
 
         self.separator = ttk.Separator(self)
-        self.separator.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        self.separator.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
 
         self.button_frame = customtkinter.CTkFrame(self, fg_color=self._fg_color)
-        self.button_frame.grid(row=2,column=0, pady=10)
+        self.button_frame.grid(row=3,column=0, pady=10)
 
         self.button_frame.columnconfigure(0, weight=1)
         self.submit_button = customtkinter.CTkButton(self.button_frame, text="Submit", command=self.submit_staff_entry, state="disabled")
@@ -107,75 +172,94 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
         self.cancel_button.grid(row=0, column=1, padx=10, pady=5)
 
         self.button_frame.columnconfigure(2, weight=1)  
-
+    
+    
+  
+ 
     def submit_staff_entry(self):
    
         first_name = self.first_name_entry.get()
         last_name = self.last_name_entry.get()
         department = self.department_entry.get()
-        tkinter.messagebox.showerror("Error","Your request could not be completed at this time. Please try again later.", parent=self)
+        gender = self.gender_variable.get()
+        email = self.email_entry.get()
+        birth_date = self.birth_date_entry.get()
+        salary = self.salary_entry.get()
+        hire_date = self.hire_date_entry.get()
+        password = "Password"
+        salt = os.urandom(32)
+        password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 10000, dklen=128 )
+        #xAVAnVOSWLjYNjY6
+        try:
+            client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
+
+            db = client.ManagementSoftware
+            Staff = db.Staff
+
+            staff_entry={
+                            "name": { "first": first_name, "last": last_name },
+                            "password": { "hash": password_hash, "salt": salt },
+                            "email": email,
+                            "gender": gender,
+                            "birthdate": birth_date,
+                            "hire_date": hire_date,
+                            "department": department, 
+                            "salary": salary,
+            }
+
+            Staff.insert_one(staff_entry)
+        except:
+            tkinter.messagebox.showerror("Error","Your request could not be completed at this time. Please try again later.", parent=self)
     def validate_inputs(self, var, index, mode):
         self.valid_inputs=0
         self.first_name_entry_is_valid = True
         self.last_name_entry_is_valid = True 
         self.department_entry_is_valid = True 
         
-        if not re.match("^[a-zA-Z]*$", self.first_name_entry.get().strip()):
-            self.first_name_entry.configure(text_color="red")
-            self.first_name_warning.configure(text="A-Z only")
-            self.first_name_warning.grid(row=1,column=1)
-            self.first_name_entry_is_valid = False
- 
-            
-        if len(self.first_name_entry.get()) < 2:
-            self.first_name_entry.configure(text_color="red")
-            self.first_name_warning.configure(text="2 characters or greater")
-            self.first_name_warning.grid(row=1,column=1)
-            self.first_name_entry_is_valid = False
 
-                
-        if self.first_name_entry_is_valid:
-            self.first_name_entry.configure(text_color="white" if self.parent.appearance_mode=="Dark" else "black")
-            self.first_name_warning.grid_forget()
-            self.valid_inputs+=1
+        if len(self.first_name_entry.get().strip()) > 0:
+            if not re.match("^[a-zA-Z]*$", self.first_name_entry.get().strip()):
+                self.first_name_entry.configure(text_color="red")
+                self.first_name_warning.configure(text="A-Z only")
+                self.first_name_warning.grid(row=1,column=1)
+                self.first_name_entry_is_valid = False
+    
+            if self.first_name_entry_is_valid:
+                self.first_name_entry.configure(text_color="white" if self.parent.appearance_mode=="Dark" else "black")
+                self.first_name_warning.grid_forget()
+                self.valid_inputs+=1
+        else:
+            self.first_name_entry_is_valid = False
 
         #---
-        if not re.match("^[a-zA-Z]*$", self.last_name_entry.get().strip()):
-            self.last_name_entry.configure(text_color="red")
-            self.last_name_warning.configure(text="A-Z only")
-            self.last_name_warning.grid(row=1,column=5)
+        if len(self.last_name_entry.get().strip()) > 0:
+            if not re.match("^[a-zA-Z]*$", self.last_name_entry.get().strip()):
+                self.last_name_entry.configure(text_color="red")
+                self.last_name_warning.configure(text="A-Z only")
+                self.last_name_warning.grid(row=1,column=3)
+                self.last_name_entry_is_valid = False
+        
+            if self.last_name_entry_is_valid:
+                self.last_name_entry.configure(text_color="white" if self.parent.appearance_mode=="Dark" else "black")
+                self.last_name_warning.grid_forget()
+                self.valid_inputs+=1
+        else:
             self.last_name_entry_is_valid = False
-       
-            
-        if len(self.last_name_entry.get()) < 2:
-            self.last_name_entry.configure(text_color="red")
-            self.last_name_warning.configure(text="2 characters or greater")
-            self.last_name_warning.grid(row=1,column=5)
-            self.last_name_entry_is_valid = False
-    
-                
-        if self.last_name_entry_is_valid:
-            self.last_name_entry.configure(text_color="white" if self.parent.appearance_mode=="Dark" else "black")
-            self.last_name_warning.grid_forget()
-            self.valid_inputs+=1
 
         #-----
-        if len(self.department_entry.get().strip().split(" ")) > 3:
-            self.department_entry.configure(text_color="red")
-            self.department_warning.configure(text="3 words or smaller")
-            self.department_warning.grid(row=3, column=1)
-            self.department_entry_is_valid = False
-        
-        if len(self.department_entry.get()) < 3:
-            self.department_entry.configure(text_color="red")
-            self.department_warning.configure(text="3 characters or greater")
-            self.department_warning.grid(row=3, column=1)
-            self.department_entry_is_valid = False
-        
-        if not re.match("^[a-zA-Z]*$", self.department_entry.get().replace(" ","")):
-            self.department_entry.configure(text_color="red")
-            self.department_warning.configure(text="A-Z only")
-            self.department_warning.grid(row=3, column=1)
+        if len(self.department_entry.get().strip()) > 0:
+            if len(self.department_entry.get().strip().split(" ")) > 3:
+                self.department_entry.configure(text_color="red")
+                self.department_warning.configure(text="3 words or smaller")
+                self.department_warning.grid(row=1, column=1)
+                self.department_entry_is_valid = False
+            
+            if not re.match("^[a-zA-Z]*$", self.department_entry.get().replace(" ","")):
+                self.department_entry.configure(text_color="red")
+                self.department_warning.configure(text="Alphabetical only")
+                self.department_warning.grid(row=1, column=1)
+                self.department_entry_is_valid = False
+        else:
             self.department_entry_is_valid = False
         
         if self.department_entry_is_valid:
@@ -224,7 +308,7 @@ class MainScreen(customtkinter.CTk):
         self.navigation_frame.grid_rowconfigure(4, weight=1)
 
         self.navigation_frame_label = customtkinter.CTkLabel(self.navigation_frame, text=self.name, image=self.logo_image,
-                                                             compound="left", font=customtkinter.CTkFont(size=15, weight="bold"))
+                                                             compound="left", padx=10, font=customtkinter.CTkFont(size=15, weight="bold"))
         self.navigation_frame_label.grid(row=0, column=0, padx=20, pady=20)
 
         self.home_button = customtkinter.CTkButton(self.navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Home",
@@ -342,7 +426,12 @@ class MainScreen(customtkinter.CTk):
         if new_colour_theme==self.colour_theme:
             return
         if self.staff_entry_window_is_open == True:
-            self.staff_entry_window.destroy()
+            self.colour_theme_var.set(self.colour_theme)
+            if tkinter.messagebox.askokcancel("Confirmation","The details you are currently entering will be deleted, continue?"):
+                self.staff_entry_window.destroy()
+            else:
+                
+                return
     
         
         self.colour_theme = new_colour_theme
@@ -354,10 +443,11 @@ class MainScreen(customtkinter.CTk):
 
         if not(self.staff_entry_window_is_open):
             self.staff_entry_window = StaffEntryWindow(self)
-            self.staff_entry_window.lift()
+            self.staff_entry_window.attributes('-topmost',True)
             self.staff_entry_window_is_open = True
         else:
-            self.staff_entry_window.lift()
+            self.staff_entry_window.deiconify()
+            
             
     def logout(self):
         self.destroy()
@@ -371,22 +461,3 @@ def isDefined(variable):
 if __name__=="__main__":
     LoginScreen()
 
-'''
-#xAVAnVOSWLjYNjY6
-client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
-
-db = client.ManagementSoftware
-Staff = db.Staff
-Customers = db.Customers
-
-staff_entry=[{
-                "name": { "first": "John", "last": "Doe" },
-                "password": { "hash": hash("Fdsf"), "salt": "salt" }
-            },
-            {
-                "name": { "first": "Doe", "last": "John" },
-                "password": { "hash": hash("password"), "salt": "salt" }
-            }]
-Staff.insert_one(staff_entry)
-
-'''
