@@ -1,21 +1,23 @@
 import hashlib
 import os
+import queue
 import re
+import threading
 import time
 import tkinter
 from tkinter import ttk
-import threading
+
 import customtkinter
 import pymongo
 from PIL import Image
 from pymongo import MongoClient
-import queue
+
 
 class LoginScreen(customtkinter.CTk):
     def __init__(self, appearance_mode = "Dark", colour_theme="Blue"):
         self.colour_theme = colour_theme
         self.connection_attempts = 0
-        self.timeout_time = 0
+        self.timeout_time = 100
         super().__init__()
         customtkinter.set_default_color_theme(self.colour_theme.lower())
         self.appearance_mode = appearance_mode
@@ -60,12 +62,14 @@ class LoginScreen(customtkinter.CTk):
              
             else:
                 tkinter.messagebox.showerror("Error", "Incorrect Password or Username")
+                self.timeout_time= 100
              
             self.change_widget_state("normal")
             self.login_button.configure(text="Login")
         else:
-            self.timeout_time+=1000
-            if self.timeout_time > 5000:
+            self.timeout_time+=100
+            print(self.timeout_time)
+            if self.timeout_time > 1500:
                 tkinter.messagebox.showerror("Error", "Could not establish a connection with the database. Please check your network connection and try again.")
                 self.timeout_time = 1000
                 self.change_widget_state("normal")
@@ -390,27 +394,47 @@ class MainScreen(customtkinter.CTk):
         self.staff_frame_add_staff_button.grid(row=0, column=0)
 
         # create settings frame 
+        
         self.settings_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self.settings_frame.grid_columnconfigure(0, weight=1)
-        self.settings_frame_theme = customtkinter.CTkLabel(self.settings_frame, text="Appearance", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
+        self.settings_frame.grid_columnconfigure(1, weight=1)
+        self.settings_frame.grid_rowconfigure(0, weight=1)
+        self.settings_navigation_frame = customtkinter.CTkFrame(self.settings_frame, corner_radius=0)
+        self.settings_navigation_frame.grid(row=0, column=0, sticky="nsew")
+        self.settings_navigation_frame.grid_rowconfigure(4, weight=1)
+
+        
+        self.appearance_button = customtkinter.CTkButton(self.settings_navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Appearance",
+                                                   fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                                                   image=self.home_image, anchor="w", command=self.settings_appearance_button_event)
+        self.appearance_button.grid(row=1, column=0, sticky="ew")
+        
+        self.account_button = customtkinter.CTkButton(self.settings_navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Account",
+                                                   fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                                                   image=self.home_image, anchor="w", command=self.settings_account_button_event)
+        self.account_button.grid(row=2, column=0, sticky="ew")
+        
+        self.settings_appearance_frame = customtkinter.CTkFrame(self.settings_frame, corner_radius=0, fg_color="transparent")
+        self.settings_appearance_frame.grid_columnconfigure(0, weight=1)
+        self.settings_frame_theme = customtkinter.CTkLabel(self.settings_appearance_frame, text="Appearance", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
         self.settings_frame_theme.grid(row=0, column=0, padx=15, pady=5, sticky = "W")
         self.appearance_mode_var = customtkinter.StringVar()
         self.appearance_mode_var.set(appearance_mode)
         self.appearance_mode = self.appearance_mode_var.get()
-        self.appearance_mode_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Dark", "Light"],command=self.change_appearance_mode_event, variable=self.appearance_mode_var) 
+        self.appearance_mode_menu = customtkinter.CTkOptionMenu(self.settings_appearance_frame, values=["Dark", "Light"],command=self.change_appearance_mode_event, variable=self.appearance_mode_var) 
         self.appearance_mode_menu.grid(row=0, column=6, padx=20, pady=5, sticky="E")
         
-        self.separator = ttk.Separator(self.settings_frame, orient='horizontal')
-        self.separator.grid(row=1, column=0, columnspan=7, sticky='ew', padx=10, pady=5)
+        self.separator = ttk.Separator(self.settings_appearance_frame, orient='horizontal')
+        self.separator.grid(row=1, column=0, columnspan=100, sticky='ew', padx=10, pady=5)
 
         self.colour_theme_var = customtkinter.StringVar()
         self.colour_theme_var.set(self.colour_theme)
-        self.settings_frame_colour_theme = customtkinter.CTkLabel(self.settings_frame, text="Colour Theme", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
+        self.settings_frame_colour_theme = customtkinter.CTkLabel(self.settings_appearance_frame, text="Colour Theme", anchor="w", font=customtkinter.CTkFont(size=15, weight="bold"))
         self.settings_frame_colour_theme.grid(row=2, column=0, padx=15, pady=5, sticky="W")
-        self.settings_frame_colour_theme_menu = customtkinter.CTkOptionMenu(self.settings_frame, values=["Blue","Dark-Blue","Green"], command=self.change_colour_theme_event, variable=self.colour_theme_var)
+        self.settings_frame_colour_theme_menu = customtkinter.CTkOptionMenu(self.settings_appearance_frame, values=["Blue","Dark-Blue","Green"], command=self.change_colour_theme_event, variable=self.colour_theme_var)
         self.settings_frame_colour_theme_menu.grid(row=2, column=6, padx=20, pady=5, sticky="E")
 
-        self.settings_frame_logout_button = customtkinter.CTkButton(self.settings_frame, text="Logout",anchor="s", command=self.logout)
+        self.settings_account_frame = customtkinter.CTkFrame(self.settings_frame, corner_radius=0, fg_color="transparent")
+        self.settings_frame_logout_button = customtkinter.CTkButton(self.settings_account_frame, text="Logout",anchor="s", command=self.logout)
         self.settings_frame_logout_button.grid(row=6, column=0, padx=10, pady=10, sticky="w")
         # select default frame
         opening_frame = "home" if self.colour_changed == False else "settings"
@@ -442,7 +466,21 @@ class MainScreen(customtkinter.CTk):
         else:
             self.settings_frame.grid_forget()
         
-
+    def select_settings_frame_by_name(self, name):
+        # set button color for selected button
+        self.appearance_button.configure(fg_color=("gray75", "gray25") if name == "appearance" else "transparent")
+        self.account_button.configure(fg_color=("gray75", "gray25") if name == "account" else "transparent")
+    
+        # show selected frame
+        if name == "appearance":
+            self.settings_appearance_frame.grid(row=0, column=1, sticky="nsew")
+        else:
+            self.home_frame.grid_forget()
+        if name == "account":
+            self.settings_account_frame.grid(row=0, column=1, sticky="nsew")
+        else:
+            self.settings_account_frame.grid_forget()
+        
     def home_button_event(self):
         self.select_frame_by_name("home")
 
@@ -455,6 +493,11 @@ class MainScreen(customtkinter.CTk):
     def settings_button_event(self):
         self.select_frame_by_name("settings")
     
+    def settings_appearance_button_event(self):
+        self.select_settings_frame_by_name("appearance")
+    
+    def settings_account_button_event(self):
+        self.select_settings_frame_by_name("account")
     def change_appearance_mode_event(self, new_appearance_mode):
         
         self.appearance_mode = new_appearance_mode
