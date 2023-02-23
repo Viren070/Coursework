@@ -4,18 +4,19 @@ import re
 import time
 import tkinter
 from tkinter import ttk
-
+import threading
 import customtkinter
 import pymongo
 from PIL import Image
 from pymongo import MongoClient
-
+import queue
 
 class LoginScreen(customtkinter.CTk):
     def __init__(self, appearance_mode = "Dark", colour_theme="Blue"):
         self.colour_theme = colour_theme
+        self.connection_attempts = 0
+        self.timeout_time = 0
         super().__init__()
-    
         customtkinter.set_default_color_theme(self.colour_theme.lower())
         self.appearance_mode = appearance_mode
         self.title("Login")
@@ -33,36 +34,69 @@ class LoginScreen(customtkinter.CTk):
         self.password_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text = "Enter Password", show = "*", width=200)
         self.password_entry.pack(pady=12,padx=10)
 
-        self.login_button = customtkinter.CTkButton(self.login_frame, text = "Login", command = self.login_button_event)
+        self.login_button = customtkinter.CTkButton(self.login_frame, text = "Login", command = self.login_button_event )
         self.login_button.pack(pady=12,padx=10)
         self.mainloop()
     
     def login_button_event(self):
+        
         self.change_widget_state("disabled")
+        self.login_button.configure(text="Authorising...")
+        self.login_button.update()
+
+        self.result_queue = queue.Queue()
+        self.new_thread = threading.Thread(target=self.search_database)
+        self.new_thread.start()
+
+    
+        self.after(self.timeout_time, self.check_database_connection)
+        
+    
+    def check_database_connection(self):
+        if not self.result_queue.empty():
+            query = self.result_queue.get()
+            if query is not None:
+                self.handle_valid_login(query)
+             
+            else:
+                tkinter.messagebox.showerror("Error", "Incorrect Password or Username")
+             
+            self.change_widget_state("normal")
+            self.login_button.configure(text="Login")
+        else:
+            self.timeout_time+=1000
+            if self.timeout_time > 5000:
+                tkinter.messagebox.showerror("Error", "Could not establish a connection with the database. Please check your network connection and try again.")
+                self.timeout_time = 1000
+                self.change_widget_state("normal")
+                self.login_button.configure(text="Login")
+            else:
+                self.after(self.timeout_time, self.check_database_connection)
+            
+    
+    def search_database(self):
         try:
             client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
             db = client.ManagementSoftware
             Staff = db.Staff
             email = self.email_entry.get()
             query = Staff.find_one({"email": "{}".format(email)})
+            self.result_queue.put(query)
         except:
-            tkinter.messagebox.showerror("Error","A connection could not be established with the database")
-            self.change_widget_state("normal")
-            return
-        if isDefined(query):
-            password_guess = self.password_entry.get()
-            name = query['name']['first']
-            salt = query['password']['salt']
-            guess_hash = hashlib.pbkdf2_hmac('sha256', password_guess.encode('utf-8'), salt, 10000, dklen=128 )
-            if guess_hash == query['password']['hash']:
-                self.destroy()
-                MainScreen(name, self.appearance_mode, self.colour_theme)
-            else:
-                tkinter.messagebox.showerror("Error","Incorrect Password or Username")
+            pass
+
+    def handle_valid_login(self, query):
+        password_guess = self.password_entry.get()
+        name = query['name']['first']
+        salt = query['password']['salt']
+        guess_hash = hashlib.pbkdf2_hmac('sha256', password_guess.encode('utf-8'), salt, 100000, dklen=128 )
+        if guess_hash == query['password']['hash']:
+            self.destroy()
+            MainScreen(name, self.appearance_mode, self.colour_theme)
         else:
             tkinter.messagebox.showerror("Error","Incorrect Password or Username")
+    
         self.change_widget_state("normal")
-        
     def change_widget_state(self, state):
         self.email_entry.configure(state=state)
         self.password_entry.configure(state=state)
@@ -177,7 +211,11 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
   
  
     def submit_staff_entry(self):
-   
+        thread = threading.Thread(target=self.add_to_database)
+        thread.start()
+        
+
+    def add_to_database(self):
         first_name = self.first_name_entry.get()
         last_name = self.last_name_entry.get()
         department = self.department_entry.get()
@@ -188,7 +226,7 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
         hire_date = self.hire_date_entry.get()
         password = "Password"
         salt = os.urandom(32)
-        password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 10000, dklen=128 )
+        password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000, dklen=128 )
         #xAVAnVOSWLjYNjY6
         try:
             client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
@@ -208,6 +246,7 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
             }
 
             Staff.insert_one(staff_entry)
+            tkinter.messagebox.showinfo("Success!","The new staff entry was successfully added into the database.")
         except:
             tkinter.messagebox.showerror("Error","Your request could not be completed at this time. Please try again later.", parent=self)
     def validate_inputs(self, var, index, mode):
@@ -460,4 +499,5 @@ def isDefined(variable):
         return False
 if __name__=="__main__":
     LoginScreen()
+   
 
