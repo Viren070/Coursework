@@ -3,16 +3,33 @@ import os
 import queue
 import re
 import threading
-import time
 import tkinter
 from tkinter import ttk
 
 import customtkinter
-import pymongo
+import webbrowser
 from PIL import Image
 from pymongo import MongoClient
 
+#pyinstaller --noconfirm --onedir --windowed --clean --add-data "c:\users\viren\appdata\local\programs\python\python311\lib\site-packages/customtkinter;customtkinter/"  "C:\Users\viren\Documents\School\Computer Science\nea\main.py"
 
+
+def IsLatestVersion():
+    APP_VERSION = "0.0.1-alpha"
+    try:
+        client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
+        db = client.ManagementSoftware
+        App = db.App
+        app_info = App.find_one()
+        if APP_VERSION != app_info["app_version"]:
+            return False
+        else:
+            return True 
+    except:
+        tkinter.messagebox.showerror("Error","Unable to connect to the database")
+
+    
+    
 class LoginScreen(customtkinter.CTk):
     def __init__(self, appearance_mode = "Dark", colour_theme="Blue"):
         self.colour_theme = colour_theme
@@ -469,6 +486,7 @@ class MainScreen(customtkinter.CTk):
             self.settings_frame.grid(row=0, column=1, sticky="nsew")
         else:
             self.settings_frame.grid_forget()
+            self.select_settings_frame_by_name(None)
 
     def home_button_event(self):
         self.select_frame_by_name("home")
@@ -540,6 +558,11 @@ class MainScreen(customtkinter.CTk):
 
 
 if __name__=="__main__":
-    LoginScreen()
+   if IsLatestVersion():
+       LoginScreen()
+   else:
+       if tkinter.messagebox.askyesno("Update Needed","You do not have the latest version of the app installed, would you like to download the latest version?"):
+           webbrowser.open("https://raw.githubusercontent.com/Viren070/Coursework/main/Installer.exe",2)
+                
    
 
