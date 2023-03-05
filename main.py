@@ -337,6 +337,7 @@ class StaffEntryWindow(customtkinter.CTkToplevel):
     def cancel_button_event(self):
         self.parent.staff_entry_window_is_open = False 
         self.destroy()
+
 class MainScreen(customtkinter.CTk):
     def __init__(self, name, appearance_mode="Dark", colour_theme="Blue", colour_changed = False, geometry_string="700x450"):
         self.name = name
@@ -367,6 +368,8 @@ class MainScreen(customtkinter.CTk):
                                                      dark_image=Image.open(os.path.join(image_path, "settings_light.png")), size=(20, 20))
         self.account_settings_image = customtkinter.CTkImage(light_image=Image.open(os.path.join(image_path, "account_settings_dark.png")),
                                                      dark_image=Image.open(os.path.join(image_path, "account_settings_light.png")), size=(20, 20))
+        self.edit_data_image =  customtkinter.CTkImage(light_image=Image.open(os.path.join(image_path, "edit_dark.png")),
+                                                     dark_image=Image.open(os.path.join(image_path, "edit_light.png")), size=(15, 15))
         self.navigation_frame = customtkinter.CTkFrame(self, corner_radius=0)
         self.navigation_frame.grid(row=0, column=0, sticky="nsew")
         self.navigation_frame.grid_rowconfigure(4, weight=1)
@@ -410,10 +413,33 @@ class MainScreen(customtkinter.CTk):
         # create staff frame
         self.staff_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.staff_frame.grid_columnconfigure(0, weight=1)
+        self.data_frame = customtkinter.CTkScrollableFrame(self.staff_frame, width=600, height=350, border_width=20, corner_radius=20)
+        self.data_frame.grid(row=0,column=0)
+        self.staff_data = self.fetch_staff_data()
+        headers = ["First Name", "Last Name", "Email"]
+        separator_column = 1
+        data_column=0
+        for header in (headers):
+            customtkinter.CTkLabel(self.data_frame, text=header, width=20, font=customtkinter.CTkFont(size=15, weight="bold")).grid(row=0, column=data_column,padx=10,pady=10)
+            ttk.Separator(self.data_frame, orient="vertical").grid(row=0, column=separator_column, sticky="sn", rowspan=1000)
+            separator_column+=2
+            data_column+=2
+        # Add data rows
+        separator_row = 1
+        data_row=2
+        for data in (self.staff_data):
+            
+
+            customtkinter.CTkLabel(self.data_frame, text=data["name"]["first"], width=20).grid(row=data_row, column=0,padx=10,pady=10)
+            customtkinter.CTkLabel(self.data_frame, text=data["name"]["last"], width=20, corner_radius=100).grid(row=data_row, column=2,padx=10,pady=10)
+            customtkinter.CTkLabel(self.data_frame, text=data["email"], width=20).grid(row=data_row, column=4,padx=5,pady=10)
+            customtkinter.CTkButton(self.data_frame, text="", image=self.edit_data_image, width=25, height=25, command=lambda: self.handle_edit_button_event(data["_id"])).grid(row=data_row, column=6, padx=10)
+            ttk.Separator(self.data_frame, orient='horizontal').grid(row=separator_row, sticky="ew", columnspan= 1000)
+            separator_row,data_row = separator_row+2, data_row+2
 
         self.staff_frame_add_staff_button = customtkinter.CTkButton(self.staff_frame, text="New Staff Entry", command=self.new_staff_entry)
-        self.staff_frame_add_staff_button.grid(row=0, column=0)
-
+        self.staff_frame_add_staff_button.grid(row=1, column=0)
+#
         # create settings frame 
         
         self.settings_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent", width=20)
@@ -550,11 +576,24 @@ class MainScreen(customtkinter.CTk):
             self.staff_entry_window_is_open = True
         else:
             self.staff_entry_window.deiconify()
+    def handle_edit_button_event(self, staff_id=None):
+        if staff_id is not None:
+            print("handling edit for {}".format(staff_id))
+        else:
+            print("no id provided")
             
             
     def logout(self):
         self.destroy()
         LoginScreen(self.appearance_mode, self.colour_theme)
+    def fetch_staff_data(self):
+        try:
+            client = MongoClient("mongodb+srv://admin:xAVAnVOSWLjYNjY6@cluster0.rr3bbtz.mongodb.net/?retryWrites=true&w=majority")
+            db = client.ManagementSoftware
+            Staff = db.Staff
+            return Staff.find()
+        except:
+            tkinter.messagebox.showerror("Error","Could not establish connection to database")
 
 
 if __name__=="__main__":
