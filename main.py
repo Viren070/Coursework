@@ -433,7 +433,7 @@ class MainScreen(customtkinter.CTk):
             customtkinter.CTkLabel(self.data_frame, text=data["name"]["first"], width=20).grid(row=data_row, column=0,padx=10,pady=10)
             customtkinter.CTkLabel(self.data_frame, text=data["name"]["last"], width=20, corner_radius=100).grid(row=data_row, column=2,padx=10,pady=10)
             customtkinter.CTkLabel(self.data_frame, text=data["email"], width=20).grid(row=data_row, column=4,padx=5,pady=10)
-            customtkinter.CTkButton(self.data_frame, text="", image=self.edit_data_image, width=25, height=25, command=lambda: self.handle_edit_button_event(data["_id"])).grid(row=data_row, column=6, padx=10)
+            customtkinter.CTkButton(self.data_frame, text="", image=self.edit_data_image, width=25, height=25, command=lambda staff_id=data["_id"]: self.handle_edit_button_event(staff_id)).grid(row=data_row, column=6, padx=10)
             ttk.Separator(self.data_frame, orient='horizontal').grid(row=separator_row, sticky="ew", columnspan= 1000)
             separator_row,data_row = separator_row+2, data_row+2
 
